@@ -39,6 +39,7 @@
 #include "open3d/visualization/gui/VectorEdit.h"
 #include "open3d/visualization/visualizer/GuiSettingsModel.h"
 #include "open3d/visualization/visualizer/GuiWidgets.h"
+#include <vector>
 
 namespace open3d {
 namespace visualization {
@@ -71,6 +72,25 @@ GuiSettingsView::GuiSettingsView(GuiSettingsModel &model,
     SetMargins(base_margins);
 
     gui::Margins indent(em, 0, 0, 0);
+
+    // YH@220426
+    auto cam_ctrls = std::make_shared<gui::CollapsableVert>(
+            "AzureKinect controls", 0, indent);
+
+    std::vector<const char *> vec = {"abcdefg"};
+    
+    connected_azk_list_ = std::make_shared<gui::Combobox>(vec);
+    refresh_azk_ = std::make_shared<SmallButton>("refresh");
+
+    auto camera_grid = std::make_shared<gui::VGrid>(3, grid_spacing);
+    camera_grid->AddChild(std::make_shared<gui::Label>("Cam. List"));
+    camera_grid->AddChild(connected_azk_list_);
+    camera_grid->AddChild(refresh_azk_);
+    cam_ctrls->AddChild(camera_grid);
+    cam_ctrls->AddFixed(separation_height);
+
+    AddChild(cam_ctrls);
+
     auto view_ctrls =
             std::make_shared<gui::CollapsableVert>("Scene controls", 0, indent);
 
