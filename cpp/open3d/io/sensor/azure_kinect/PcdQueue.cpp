@@ -23,23 +23,43 @@
 // FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS
 // IN THE SOFTWARE.
 // ----------------------------------------------------------------------------
-
-#include "open3d/visualization/app/Capturer.h"
-
+#include "open3d/utility/Logging.h"
+#include "PcdQueue.h"
 #include <iostream>
 #include <string>
+using namespace open3d::io;
 
-#include "open3d/utility/Logging.h"
-
+//#include "open3d/utility/Log\ging.h"
 
 namespace open3d {
-namespace visualization {
-namespace app {
+namespace io {
 
-void RunCapturer() {
-	utility::LogInfo("RunCapturer is running");
+CPcdQueue* CPcdQueue::_instance = nullptr;
+
+void CPcdQueue::push(std::shared_ptr<open3d::geometry::PointCloud> pcd) {
+    constexpr int max_queue_size = 3;
+    _mutex.lock();
+    while(_que.size() >= max_queue_size) 
+        _que.pop();    
+    _que.push(pcd);
+    _mutex.unlock();
 }
 
-}  // namespace app
-}  // namespace visualization
+void CPcdQueue::pop() { 
+    _mutex.lock();
+    _que.pop();
+    _mutex.unlock();
+}
+
+std::shared_ptr<open3d::geometry::PointCloud> CPcdQueue::front() {
+    _mutex.lock();
+    std::shared_ptr<open3d::geometry::PointCloud> front_data = nullptr;
+    if(_que.size()>0) {
+        front_data = _que.front();
+    }
+    _mutex.unlock();
+    return front_data;
+}
+
+}  // namespace io
 }  // namespace open3d

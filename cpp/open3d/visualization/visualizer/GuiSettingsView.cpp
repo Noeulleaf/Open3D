@@ -39,7 +39,10 @@
 #include "open3d/visualization/gui/VectorEdit.h"
 #include "open3d/visualization/visualizer/GuiSettingsModel.h"
 #include "open3d/visualization/visualizer/GuiWidgets.h"
+#include "open3d/visualization/app/Azk.h"
 #include <vector>
+
+using namespace open3d::io;
 
 namespace open3d {
 namespace visualization {
@@ -61,6 +64,7 @@ GuiSettingsView::GuiSettingsView(GuiSettingsModel &model,
                                  const std::string &resource_path,
                                  std::function<void(const char *)> on_load_ibl)
     : model_(model), on_load_ibl_(on_load_ibl) {
+
     const auto em = theme.font_size;
     const int lm = int(std::ceil(0.5 * em));
     const int grid_spacing = int(std::ceil(0.25 * em));
@@ -73,14 +77,28 @@ GuiSettingsView::GuiSettingsView(GuiSettingsModel &model,
 
     gui::Margins indent(em, 0, 0, 0);
 
+
+
     // YH@220426
     auto cam_ctrls = std::make_shared<gui::CollapsableVert>(
             "AzureKinect controls", 0, indent);
 
-    std::vector<const char *> vec = {"abcdefg"};
-    
+    std::vector<const char *> vec;
+    vec.clear();
+    std::string id = CAzk::GetInstance()->get_connected_device_id();
+    vec.emplace_back(id.c_str());
+
     connected_azk_list_ = std::make_shared<gui::Combobox>(vec);
     refresh_azk_ = std::make_shared<SmallButton>("refresh");
+    refresh_azk_->SetOnClicked([this]() 
+    {
+        connected_azk_list_->ClearItems();
+        std::vector<const char *> vec;
+        std::string id = CAzk::GetInstance()->get_connected_device_id();
+        vec.emplace_back(id.c_str());
+        for (auto id : vec) connected_azk_list_->AddItem(id);
+    });
+
 
     auto camera_grid = std::make_shared<gui::VGrid>(3, grid_spacing);
     camera_grid->AddChild(std::make_shared<gui::Label>("Cam. List"));

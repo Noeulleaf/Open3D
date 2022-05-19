@@ -29,12 +29,14 @@
 #include <functional>
 #include <memory>
 #include <string>
-
 #include "open3d/visualization/gui/Layout.h"
+
 
 namespace open3d {
 
 namespace visualization {
+
+
 
 namespace gui {
 class Button;
@@ -48,6 +50,8 @@ class VectorEdit;
 
 class GuiSettingsModel;
 
+
+
 class GuiSettingsView : public gui::Vert {
 public:
     GuiSettingsView(GuiSettingsModel& model,
@@ -59,7 +63,7 @@ public:
     void EnableEstimateNormals(bool enable);
     void Update();
 
-private:
+private:    
     GuiSettingsModel& model_;
     std::function<void(const char*)> on_load_ibl_;
 

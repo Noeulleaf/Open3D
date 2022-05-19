@@ -56,6 +56,8 @@ if (BUILD_AZURE_KINECT)
         sensor/azure_kinect/MKVMetadata.cpp
         sensor/azure_kinect/MKVReader.cpp
         sensor/azure_kinect/MKVWriter.cpp
+		sensor/azure_kinect/Azk.cpp
+		sensor/azure_kinect/PcdQueue.cpp
     )
 endif()
 
