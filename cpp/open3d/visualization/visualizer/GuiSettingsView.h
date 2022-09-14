@@ -94,13 +94,14 @@ private:
     //YH@220426, Azurekinect related gui
     std::shared_ptr<gui::Combobox> connected_azk_list_;
     std::shared_ptr<gui::Button> refresh_azk_;
-    std::shared_ptr<gui::Button> open_azk_;
-    std::shared_ptr<gui::Button> close_azk_;
     std::shared_ptr<gui::Button> start_azk_;
     std::shared_ptr<gui::Button> stop_azk_;
+    int m_selectedDevice;
 
     bool sun_follows_cam_was_on_ = true;
     void UpdateUIForBasicMode(bool enable);
+    void RefreshAzkClicked();
+
 };
 
 }  // namespace visualization

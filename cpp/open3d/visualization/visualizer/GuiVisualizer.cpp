@@ -70,7 +70,7 @@
 #include "open3d/visualization/visualizer/GuiSettingsView.h"
 #include "open3d/visualization/visualizer/GuiWidgets.h"
 #include "open3d/visualization/visualizer/MessageProcessor.h"
-
+#include "open3d/io/sensor/azure_kinect/PcdQueue.h"
 #define LOAD_IN_NEW_WINDOW 0
 
 namespace open3d {
@@ -561,8 +561,8 @@ struct GuiVisualizer::Impl {
     }
 
 private:
-    void UpdateLighting(rendering::Renderer &renderer,
-                        const GuiSettingsModel::LightingProfile &lighting) {
+    void UpdateLighting(rendering::Renderer &renderer, const GuiSettingsModel::LightingProfile &lighting)
+    {
         auto scene = scene_wgt_->GetScene();
         auto *render_scene = scene->GetScene();
         if (lighting.use_default_ibl &&
@@ -948,6 +948,27 @@ void GuiVisualizer::Init() {
     impl_->help_camera_ = CreateCameraDisplay(this);
     impl_->help_camera_->SetVisible(false);
     AddChild(impl_->help_camera_);
+
+
+    gui::Application::GetInstance().RunInThread([this]() {
+        while (true)
+        {
+            if (CPcdQueue::GetInstance()->size() > 0) {
+                auto pcd = CPcdQueue::GetInstance()->front();
+                CPcdQueue::GetInstance()->pop();
+
+                if(pcd) {
+                    gui::Application::GetInstance().PostToMainThread(this, [this, pcd]() 
+                    { 
+                        this->SetGeometry(pcd);
+                    });
+                }
+            } else {
+                std::this_thread::sleep_for(std::chrono::milliseconds(10));
+            }
+        }
+    });
+
 }
 
 GuiVisualizer::~GuiVisualizer() {}
@@ -1054,6 +1075,88 @@ void GuiVisualizer::SetGeometry(
     // Make sure scene is redrawn
     impl_->scene_wgt_->ForceRedraw();
 }
+
+// Newly defined by YHJo @ 22.05.20 to cover pcd cloud streaming rendering
+void GuiVisualizer::SetGeometry(std::shared_ptr<const geometry::Geometry> geometry) 
+{
+    auto scene3d = impl_->scene_wgt_->GetScene();
+    scene3d->ClearGeometry();
+    static bool isFirstTime = false;
+    impl_->SetMaterialsToDefault();
+
+    rendering::MaterialRecord loaded_material;
+    // NOTE: If a model was NOT loaded then these must be point clouds
+    std::shared_ptr<const geometry::Geometry> g = geometry;
+
+    // If a point cloud or mesh has no vertex colors or a single uniform
+    // color (usually white), then we want to display it normally, that
+    // is, lit. But if the cloud/mesh has differing vertex colors, then
+    // we assume that the vertex colors have the lighting value baked in
+    // (for example, fountain.ply at http://qianyi.info/scenedata.html)
+    if (g->GetGeometryType() ==
+        geometry::Geometry::GeometryType::PointCloud) {
+        auto pcd = std::static_pointer_cast<const geometry::PointCloud>(g);
+
+        if (pcd->HasNormals()) {
+            loaded_material.shader = "defaultLit";
+        } else if (pcd->HasColors() && !PointCloudHasUniformColor(*pcd)) {
+            loaded_material.shader = "defaultUnlit";
+        } else {
+            loaded_material.shader = "defaultLit";
+        }
+
+        scene3d->AddGeometry(MODEL_NAME, pcd.get(), loaded_material);
+        if (!isFirstTime) {
+            auto &bounds = scene3d->GetBoundingBox();
+            impl_->scene_wgt_->SetupCamera(60.0, bounds,
+                                           bounds.GetCenter().cast<float>());
+            isFirstTime = true;
+            pcd.reset();
+        }
+
+
+        impl_->settings_.model_.SetDisplayingPointClouds(true);
+        impl_->settings_.view_->EnableEstimateNormals(true);
+        if (!impl_->settings_.model_.GetUserHasChangedLightingProfile()) {
+            auto &profile =
+                    GuiSettingsModel::GetDefaultPointCloudLightingProfile();
+            impl_->settings_.model_.SetLightingProfile(profile);
+        }
+    }
+
+    auto type = impl_->settings_.model_.GetMaterialType();
+    if (type == GuiSettingsModel::MaterialType::LIT ||
+        type == GuiSettingsModel::MaterialType::UNLIT) {
+        if (loaded_material.shader == "defaultUnlit") {
+            impl_->settings_.model_.SetMaterialType(
+                    GuiSettingsModel::MaterialType::UNLIT);
+        } else {
+            impl_->settings_.model_.SetMaterialType(
+                    GuiSettingsModel::MaterialType::LIT);
+        }
+    }
+
+    // Setup UI for loaded model/point cloud
+    impl_->settings_.model_.UnsetCustomDefaultColor();
+    impl_->settings_.view_->ShowFileMaterialEntry(false);
+
+    impl_->settings_.view_->Update();  // make sure prefab material is correct
+
+
+
+    // Setup for raw mode if enabled...
+    if (impl_->basic_mode_enabled_) {
+        impl_->SetBasicModeGeometry(true);
+        scene3d->GetScene()->SetSunLightDirection(
+                scene3d->GetCamera()->GetForwardVector());
+    }
+
+    // Make sure scene is redrawn
+    impl_->scene_wgt_->ForceRedraw();
+    g = nullptr;
+
+}
+
 
 void GuiVisualizer::Layout(const gui::LayoutContext &context) {
     auto r = GetContentRect();

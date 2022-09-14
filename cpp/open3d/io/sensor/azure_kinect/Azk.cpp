@@ -37,14 +37,19 @@ CAzk* CAzk::_instance = nullptr;
 bool CAzk::isRunning = false;
 std::string CAzk::_deviceId = "";
 std::thread CAzk::_thread;
-
+k4a_device_t CAzk::device;
+k4a_calibration_t CAzk::calibration;
+k4a_transformation_t CAzk::transformation;
+k4a_capture_t CAzk::capture;
+std::mutex CAzk::mtx;
 
 std::string CAzk::get_connected_device_id() { 
     const uint32_t installedDevices = k4a_plugin::k4a_device_get_installed_count();
-    k4a_device_t device=NULL;
     std::unique_ptr<char[]> _id;
     size_t id_len = 0;
     if(installedDevices>0) {
+        if (device != NULL) return _deviceId;
+
         if (K4A_RESULT_SUCCEEDED == k4a_plugin::k4a_device_open(K4A_DEVICE_DEFAULT, &device)) {
             k4a_buffer_result_t result_t = k4a_plugin::k4a_device_get_serialnum(device, NULL, &id_len);
             _id = std::make_unique<char[]>(id_len);
@@ -52,14 +57,16 @@ std::string CAzk::get_connected_device_id() {
             _deviceId = std::move(_id.get());
         }
     } else {
-        _deviceId = "No Devices";
+        _deviceId = "";
     }
-
+    //k4a_plugin::k4a_device_close(device);
     return _deviceId;
 }
 
 void CAzk::run() { 
+    std::lock_guard<std::mutex> lock(mtx);
     isRunning = true;
+    if (_thread.joinable()) return; //thread is still running
     _thread = std::thread(CAzk::capturer); 
 }
 
@@ -68,16 +75,16 @@ void CAzk::capturer() {
     int device_num = k4a_plugin::k4a_device_get_installed_count();
     if (device_num == 0) return;
     k4a_result_t result;
-    k4a_device_t device = NULL;
-    k4a_calibration_t calibration;
-    k4a_transformation_t transformation;
+
     k4a_device_configuration_t config = CAzk::get_master_config();
     config.wired_sync_mode = K4A_WIRED_SYNC_MODE_STANDALONE;
-
-    if (K4A_RESULT_SUCCEEDED != k4a_plugin::k4a_device_open(K4A_DEVICE_DEFAULT, &device)) {
-        open3d::utility::LogError("Failed to open device");
-        k4a_plugin::k4a_device_close(device);
-        return;
+    if(device==NULL) {
+        if (K4A_RESULT_SUCCEEDED !=
+            k4a_plugin::k4a_device_open(K4A_DEVICE_DEFAULT, &device)) {
+            open3d::utility::LogError("Failed to open device");
+            k4a_plugin::k4a_device_close(device);
+            return;
+        }    
     }
 
     result = k4a_plugin::k4a_device_get_calibration(device, config.depth_mode, config.color_resolution, &calibration);
@@ -97,7 +104,7 @@ void CAzk::capturer() {
         return;
     }
 
-    k4a_capture_t capture = NULL;
+    
     k4a_image_t depth_image = NULL;
     k4a_image_t color_image = NULL;
 
@@ -184,6 +191,7 @@ void CAzk::capturer() {
         k4a_plugin::k4a_image_release(depth_image);
         k4a_plugin::k4a_image_release(color_image);
         k4a_plugin::k4a_capture_release(capture);
+        capture = NULL;
         pcd.reset();
     }
 }
@@ -245,8 +253,16 @@ k4a_device_configuration_t CAzk::get_subordinate_config(int idx) {
 }
 
 void CAzk::stop() { 
+    std::lock_guard<std::mutex> lock(mtx);
 	isRunning = false;
-    _thread.join();
+    if (_thread.joinable())
+        _thread.join();
+    else
+        return;
+    k4a_plugin::k4a_device_stop_cameras(device);
+    k4a_plugin::k4a_transformation_destroy(transformation);
+    if (capture!=NULL)
+        k4a_plugin::k4a_capture_release(capture);
 }
 
 }  // namespace io

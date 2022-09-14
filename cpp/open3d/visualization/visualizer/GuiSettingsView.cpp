@@ -39,13 +39,17 @@
 #include "open3d/visualization/gui/VectorEdit.h"
 #include "open3d/visualization/visualizer/GuiSettingsModel.h"
 #include "open3d/visualization/visualizer/GuiWidgets.h"
-#include "open3d/visualization/app/Azk.h"
+#include "open3d/io/sensor/azure_kinect/Azk.h"
+#include "open3d/io/sensor/azure_kinect/PcdQueue.h"
 #include <vector>
 
 using namespace open3d::io;
 
+
+
 namespace open3d {
 namespace visualization {
+
 
 static const char *CUSTOM_LIGHTING = "Custom";
 
@@ -76,35 +80,41 @@ GuiSettingsView::GuiSettingsView(GuiSettingsModel &model,
     SetMargins(base_margins);
 
     gui::Margins indent(em, 0, 0, 0);
-
-
-
+    
     // YH@220426
-    auto cam_ctrls = std::make_shared<gui::CollapsableVert>(
-            "AzureKinect controls", 0, indent);
-
-    std::vector<const char *> vec;
-    vec.clear();
-    std::string id = CAzk::GetInstance()->get_connected_device_id();
-    vec.emplace_back(id.c_str());
-
-    connected_azk_list_ = std::make_shared<gui::Combobox>(vec);
+    auto cam_ctrls = std::make_shared<gui::CollapsableVert>("AzureKinect controls", 0, indent);
+    connected_azk_list_ = std::make_shared<gui::Combobox>();
     refresh_azk_ = std::make_shared<SmallButton>("refresh");
+    RefreshAzkClicked();
     refresh_azk_->SetOnClicked([this]() 
-    {
-        connected_azk_list_->ClearItems();
-        std::vector<const char *> vec;
-        std::string id = CAzk::GetInstance()->get_connected_device_id();
-        vec.emplace_back(id.c_str());
-        for (auto id : vec) connected_azk_list_->AddItem(id);
+    { 
+        RefreshAzkClicked();
     });
 
+    start_azk_ = std::make_shared<SmallButton>("start");
+    start_azk_->SetOnClicked([this]() { 
+        CAzk::GetInstance()->run();
+        stop_azk_->SetEnabled(true);
+        start_azk_->SetEnabled(false);
+    });
 
-    auto camera_grid = std::make_shared<gui::VGrid>(3, grid_spacing);
-    camera_grid->AddChild(std::make_shared<gui::Label>("Cam. List"));
-    camera_grid->AddChild(connected_azk_list_);
-    camera_grid->AddChild(refresh_azk_);
-    cam_ctrls->AddChild(camera_grid);
+    stop_azk_ = std::make_shared<SmallButton>("stop");
+    stop_azk_->SetOnClicked([this]() { 
+        CAzk::GetInstance()->stop();
+        start_azk_->SetEnabled(true);
+        stop_azk_->SetEnabled(false);
+    });
+
+    auto camera_list_grid = std::make_shared<gui::VGrid>(3, grid_spacing*2);
+    camera_list_grid->AddChild(std::make_shared<gui::Label>("Device S/N"));
+    camera_list_grid->AddChild(connected_azk_list_);
+    camera_list_grid->AddChild(refresh_azk_);
+    
+    camera_list_grid->AddChild(start_azk_);
+    camera_list_grid->AddChild(stop_azk_);
+    
+    cam_ctrls->AddChild(camera_list_grid);
+    
     cam_ctrls->AddFixed(separation_height);
 
     AddChild(cam_ctrls);
@@ -513,6 +523,22 @@ void GuiSettingsView::UpdateUIForBasicMode(bool enable) {
             model_.SetSunFollowsCamera(false);
         }
     }
+}
+
+void GuiSettingsView::RefreshAzkClicked() {
+    connected_azk_list_->ClearItems();
+    std::vector<const char *> vec;
+    std::string id = CAzk::GetInstance()->get_connected_device_id();
+
+    if (!id.empty()) {
+        vec.emplace_back(id.c_str());
+        m_selectedDevice = 0;
+    } else {
+        vec.emplace_back("No Devices");
+        m_selectedDevice = -1;
+    }
+    for (auto id : vec) connected_azk_list_->AddItem(id);
+    
 }
 
 }  // namespace visualization

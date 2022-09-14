@@ -37,28 +37,31 @@ namespace io {
 CPcdQueue* CPcdQueue::_instance = nullptr;
 
 void CPcdQueue::push(std::shared_ptr<open3d::geometry::PointCloud> pcd) {
+    std::lock_guard<std::mutex> lock(mtx);
     constexpr int max_queue_size = 3;
-    _mutex.lock();
     while(_que.size() >= max_queue_size) 
         _que.pop();    
     _que.push(pcd);
-    _mutex.unlock();
 }
 
 void CPcdQueue::pop() { 
-    _mutex.lock();
+     std::lock_guard<std::mutex> lock(mtx);
     _que.pop();
-    _mutex.unlock();
+}
+
+int CPcdQueue::size() { 
+    std::lock_guard<std::mutex> lock(mtx);
+    int q_size = 0;
+    q_size = _que.size();
+    return q_size;
 }
 
 std::shared_ptr<open3d::geometry::PointCloud> CPcdQueue::front() {
-    _mutex.lock();
-    std::shared_ptr<open3d::geometry::PointCloud> front_data = nullptr;
+    std::lock_guard<std::mutex> lock(mtx);
     if(_que.size()>0) {
-        front_data = _que.front();
+        return _que.front();
     }
-    _mutex.unlock();
-    return front_data;
+    return nullptr;
 }
 
 }  // namespace io

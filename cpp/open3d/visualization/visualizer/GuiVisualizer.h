@@ -60,6 +60,8 @@ public:
     void SetTitle(const std::string& title);
     void SetGeometry(std::shared_ptr<const geometry::Geometry> geometry,
                      bool loaded_model);
+    
+    void SetGeometry(std::shared_ptr<const geometry::Geometry> geometry);
 
     bool SetIBL(const char* path);
 

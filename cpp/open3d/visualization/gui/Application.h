@@ -209,6 +209,7 @@ private:
 private:
     struct Impl;
     std::unique_ptr<Impl> impl_;
+    static bool isDataPasserRunning;
 };
 
 }  // namespace gui

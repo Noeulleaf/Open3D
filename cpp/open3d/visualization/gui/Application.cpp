@@ -117,6 +117,8 @@ namespace open3d {
 namespace visualization {
 namespace gui {
 
+bool Application::isDataPasserRunning;
+
 struct Application::Impl {
     bool is_initialized_ = false;
     std::shared_ptr<WindowSystem> window_system_;

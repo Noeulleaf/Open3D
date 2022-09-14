@@ -2,9 +2,10 @@
 
 #include <thread>
 #include <vector>
-#include "open3d/Open3D.h"
-#include <open3d/io/sensor/azure_kinect/K4aPlugin.h>
 #include <k4a/k4a.h>
+#include <k4a/k4a.hpp>
+#include "open3d/Open3D.h"
+#include "open3d/io/sensor/azure_kinect/K4aPlugin.h"
 using namespace open3d::io;
 
 namespace open3d {
@@ -36,6 +37,12 @@ private:
     static bool isRunning;
     static std::string _deviceId;
     static std::thread _thread;
+
+    static k4a_device_t device;
+    static k4a_calibration_t calibration;
+    static k4a_transformation_t transformation;
+    static k4a_capture_t CAzk::capture;
+    static std::mutex CAzk::mtx;
 };
-}  // namespace io
+}  // namespace visualization
 }  // namespace open3d

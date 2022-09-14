@@ -19,20 +19,19 @@ public:
 			_instance = new CPcdQueue();
         return _instance;
 	}
-        int Size() {
-            _mutex.lock();
-            int size = _que.size();
-            _mutex.unlock();
-            return size;
-        }
+    int Size() {
+        std::lock_guard<std::mutex> lock(mtx);
+        int size = _que.size();
+        return size;
+    }
 	void push(std::shared_ptr<open3d::geometry::PointCloud> pcd);
     void pop();
+    int size();
     std::shared_ptr<open3d::geometry::PointCloud> front();
 
 
 private:
-    
-    std::mutex _mutex;
+    std::mutex mtx;
     static CPcdQueue* _instance;
     std::queue<std::shared_ptr<open3d::geometry::PointCloud>> _que;
 };
